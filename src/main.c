@@ -16,6 +16,8 @@ typedef struct {
 } state_t;
 
 int main(int argc, char** argv) {
+    (void)argc;
+    (void)argv;
     state_t state = {0};
     // init SDL systems
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER) != 0) {
