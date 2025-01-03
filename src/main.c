@@ -25,7 +25,7 @@ typedef struct {
 typedef struct {
     SDL_Window* window;
     SDL_Renderer* renderer;
-} program_t;
+} sdl_t;
 
 bool init_vm(vm_t* vm, char* rom_name) {
     const uint8_t font[] = {
@@ -79,13 +79,13 @@ bool init_vm(vm_t* vm, char* rom_name) {
     return true;
 }
 
-bool init_sdl(program_t* program) {
+bool init_sdl(sdl_t* sdl) {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER) != 0) {
         SDL_Log("Unable to init SDL: %s\n", SDL_GetError());
         return false;
     }
 
-    program->window = SDL_CreateWindow(
+    sdl->window = SDL_CreateWindow(
         "Chip8",
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
@@ -93,66 +93,87 @@ bool init_sdl(program_t* program) {
         640,   // 32 * 20
         0);
 
-    if (!program->window) {
+    if (!sdl->window) {
         SDL_Log("Unable to create SDL window: %s", SDL_GetError());
         return 1;
     }
 
-    program->renderer = SDL_CreateRenderer(
-        program->window,
+    sdl->renderer = SDL_CreateRenderer(
+        sdl->window,
         -1,
         SDL_RENDERER_ACCELERATED);
 
-    if (!program->renderer) {
+    if (!sdl->renderer) {
         SDL_Log("Unable to create SDL renderer: %s", SDL_GetError());
         return false;
     }
     return true;
 }
 
-void cleanup(program_t* program) {
-    SDL_DestroyRenderer(program->renderer);
-    SDL_DestroyWindow(program->window);
+void cleanup(sdl_t* sdl) {
+    SDL_DestroyRenderer(sdl->renderer);
+    SDL_DestroyWindow(sdl->window);
     SDL_Quit();
 }
 
-int main(int argc, char** argv) {
-    (void)argc;
-    program_t program = {};
-    init_sdl(&program);
+void process_input(vm_t* vm) {
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        switch (event.type) {
+            case SDL_KEYDOWN:
+                switch (event.key.keysym.sym) {
+                    case SDLK_ESCAPE:
+                        vm->state = QUIT;
+                        break;
+                    case SDLK_SPACE:
+                        if (vm->state == RUNNING) {
+                            vm->state = PAUSED;
+                        } else {
+                            vm->state = RUNNING;
+                        }
+                        return;
+                    default:
+                        break;
+                }
+                break;
 
-    vm_t vm = {};
-    init_vm(&vm, argv[1]);
+            case SDL_QUIT:
+                vm->state = QUIT;
+                break;
+
+            default:
+                break;
+        }
+    }
+}
+
+int main(int argc, char** argv) {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <rom_name>\n", *argv);
+        return 1;
+    }
+
+    sdl_t sdl = {};
+    init_sdl(&sdl);
+
+    vm_t vm;
+    init_vm(&vm, *(argv + 1));
 
     // main loop
     while (vm.state != QUIT) {
-        SDL_Event event;
-        while (SDL_PollEvent(&event)) {
-            switch (event.type) {
-                case SDL_KEYDOWN:
-                    switch (event.key.keysym.sym) {
-                        case SDLK_ESCAPE:
-                            vm.state = QUIT;
-                            break;
-                        default:
-                            break;
-                    }
-                    break;
-                case SDL_QUIT:
-                    vm.state = QUIT;
-                    break;
-                default:
-                    break;
-            }
+        process_input(&vm);
+
+        if (vm.state == PAUSED) {
+            continue;
         }
 
         SDL_Delay(16);
 
-        SDL_SetRenderDrawColor(program.renderer, 255, 255, 0, SDL_ALPHA_OPAQUE);
-        SDL_RenderClear(program.renderer);
-        SDL_RenderPresent(program.renderer);
+        SDL_SetRenderDrawColor(sdl.renderer, 255, 255, 0, SDL_ALPHA_OPAQUE);
+        SDL_RenderClear(sdl.renderer);
+        SDL_RenderPresent(sdl.renderer);
     }
 
-    cleanup(&program);
+    cleanup(&sdl);
     return 0;
 }
