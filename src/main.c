@@ -167,6 +167,8 @@ int main(int argc, char** argv) {
             continue;
         }
 
+        emu_inx(&vm);
+
         SDL_Delay(16);
 
         SDL_SetRenderDrawColor(sdl.renderer, 255, 255, 0, SDL_ALPHA_OPAQUE);
